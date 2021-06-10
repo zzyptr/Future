@@ -14,6 +14,6 @@ let package = Package(
         .library(name: "Future", targets: ["Future"])
     ],
     targets: [
-        .target(name: "Future", path: "Source"),
+        .target(name: "Future", path: "Source")
     ]
 )
