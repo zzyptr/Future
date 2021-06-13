@@ -11,12 +11,12 @@ public struct Promise<T, E: Error> {
     }
 
     @inlinable
-    public func succeed(with t: T) {
-        future.succeed(with: t)
+    public func succeeded(_ t: T) {
+        future.succeeded(t)
     }
 
     @inlinable
-    public func fail(with e: E) {
-        future.fail(with: e)
+    public func failed(_ e: E) {
+        future.failed(e)
     }
 }

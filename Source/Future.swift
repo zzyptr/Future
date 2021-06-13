@@ -2,10 +2,10 @@
 public final class Future<T, E: Error> {
 
     @usableFromInline
-    var _callbacks = [Callback]()
+    var _lock: Lock?
 
     @usableFromInline
-    var _lock: Lock?
+    var _callbacks: [Callback]?
 
     @usableFromInline
     var _result: Result<T, E>?
@@ -13,12 +13,11 @@ public final class Future<T, E: Error> {
     @inlinable
     init() {
         _lock = Lock()
-        _result = nil
+        _callbacks = []
     }
 
     @inlinable
-    public init(result: Result<T, E>) {
-        _lock = nil
+    init(result: Result<T, E>) {
         _result = result
     }
 
@@ -45,23 +44,13 @@ extension Future where T == Never {
 extension Future {
 
     @inlinable
-    public convenience init(_ value: T) {
-        self.init(result: .success(value))
-    }
-
-    @inlinable
-    public convenience init(error: E) {
-        self.init(result: .failure(error))
-    }
-
-    @inlinable
     func appendCallback(_ callback: @escaping Callback) {
         _lock?.lock()
         defer { _lock?.unlock() }
         if let result = _result {
             callback(result)
         } else {
-            _callbacks.append(callback)
+            _callbacks?.append(callback)
         }
     }
 
@@ -70,19 +59,19 @@ extension Future {
         _lock?.lock()
         guard _result == nil else { return }
         _result = result
-        _callbacks.forEach { $0(result) }
-        _callbacks = []
+        _callbacks?.forEach { $0(result) }
+        _callbacks = nil
         _lock?.unlock()
         _lock = nil
     }
 
     @inlinable
-    func succeed(with value: T) {
+    func succeeded(_ value: T) {
         complete(with: .success(value))
     }
 
     @inlinable
-    func fail(with error: E) {
+    func failed(_ error: E) {
         complete(with: .failure(error))
     }
 
@@ -97,12 +86,12 @@ extension Future {
                 lock.lock()
                 defer { lock.unlock() }
                 if let u = tOrU as? U {
-                    futureTU.succeed(with: (t, u))
+                    futureTU.succeeded((t, u))
                 } else {
                     tOrU = t
                 }
             case let .failure(e):
-                futureTU.fail(with: e)
+                futureTU.failed(e)
             }
         }
         futureU.appendCallback { result in
@@ -111,12 +100,12 @@ extension Future {
                 lock.lock()
                 defer { lock.unlock() }
                 if let t = tOrU as? T {
-                    futureTU.succeed(with: (t, u))
+                    futureTU.succeeded((t, u))
                 } else {
                     tOrU = u
                 }
             case let .failure(e):
-                futureTU.fail(with: e)
+                futureTU.failed(e)
             }
         }
         return futureTU
@@ -133,12 +122,12 @@ extension Future {
                 lock.lock()
                 defer { lock.unlock() }
                 if let u = tOrU as? U {
-                    futureTU.succeed(with: (t, u))
+                    futureTU.succeeded((t, u))
                 } else {
                     tOrU = t
                 }
             case let .failure(e):
-                futureTU.fail(with: e)
+                futureTU.failed(e)
             }
         }
         futureU.appendCallback { result in
@@ -147,12 +136,12 @@ extension Future {
                 lock.lock()
                 defer { lock.unlock() }
                 if let t = tOrU as? T {
-                    futureTU.succeed(with: (t, u))
+                    futureTU.succeeded((t, u))
                 } else {
                     tOrU = u
                 }
             case let .failure(e):
-                futureTU.fail(with: e)
+                futureTU.failed(e)
             }
         }
         return futureTU
@@ -169,12 +158,12 @@ extension Future {
                 lock.lock()
                 defer { lock.unlock() }
                 if let u = tOrU as? U {
-                    futureTU.succeed(with: (t, u))
+                    futureTU.succeeded((t, u))
                 } else {
                     tOrU = t
                 }
             case let .failure(e):
-                futureTU.fail(with: e)
+                futureTU.failed(e)
             }
         }
         futureU.appendCallback { result in
@@ -183,7 +172,7 @@ extension Future {
                 lock.lock()
                 defer { lock.unlock() }
                 if let t = tOrU as? T {
-                    futureTU.succeed(with: (t, u))
+                    futureTU.succeeded((t, u))
                 } else {
                     tOrU = u
                 }
@@ -202,9 +191,9 @@ extension Future {
             switch result {
             case let .success(t):
                 let u = t[keyPath: keyPath]
-                futureU.succeed(with: u)
+                futureU.succeeded(u)
             case let .failure(e):
-                futureU.fail(with: e)
+                futureU.failed(e)
             }
         }
         return futureU
@@ -217,9 +206,9 @@ extension Future {
             switch result {
             case let .success(t):
                 let u = transform(t)
-                futureU.succeed(with: u)
+                futureU.succeeded(u)
             case let .failure(e):
-                futureU.fail(with: e)
+                futureU.failed(e)
             }
         }
         return futureU
@@ -233,12 +222,12 @@ extension Future {
             case let .success(t):
                 do {
                     let u = try transform(t)
-                    futureU.succeed(with: u)
+                    futureU.succeeded(u)
                 } catch {
-                    futureU.fail(with: error)
+                    futureU.failed(error)
                 }
             case let .failure(e):
-                futureU.fail(with: e)
+                futureU.failed(e)
             }
         }
         return futureU
@@ -246,17 +235,17 @@ extension Future {
 
     @inlinable
     public func mapError<F>(_ transform: @escaping (E) -> F) -> Future<T, F> {
-        let futureT = Future<T, F>()
+        let future = Future<T, F>()
         appendCallback { result in
             switch result {
             case let .success(t):
-                futureT.succeed(with: t)
+                future.succeeded(t)
             case let .failure(e):
                 let f = transform(e)
-                futureT.fail(with: f)
+                future.failed(f)
             }
         }
-        return futureT
+        return future
     }
 
     @inlinable
@@ -265,10 +254,10 @@ extension Future {
         appendCallback { result in
             switch result {
             case let .success(t):
-                let fut = transform(t)
-                fut.appendCallback(futureU.complete)
+                let future = transform(t)
+                future.appendCallback(futureU.complete)
             case let .failure(e):
-                futureU.fail(with: e)
+                futureU.failed(e)
             }
         }
         return futureU
@@ -280,17 +269,17 @@ extension Future {
         appendCallback { result in
             switch result {
             case let .success(t):
-                let fut = transform(t)
-                fut.appendCallback { res in
-                    switch res {
+                let future = transform(t)
+                future.appendCallback { result in
+                    switch result {
                     case let .success(u):
-                        futureU.succeed(with: u)
+                        futureU.succeeded(u)
                     case let .failure(e):
-                        futureU.fail(with: e)
+                        futureU.failed(e)
                     }
                 }
             case let .failure(e):
-                futureU.fail(with: e)
+                futureU.failed(e)
             }
         }
         return futureU
@@ -302,15 +291,15 @@ extension Future {
         appendCallback { result in
             switch result {
             case let .success(t):
-                let fut = transform(t)
-                fut.appendCallback { res in
-                    switch res {
+                let future = transform(t)
+                future.appendCallback { result in
+                    switch result {
                     case let .success(u):
-                        futureU.succeed(with: u)
+                        futureU.succeeded(u)
                     }
                 }
             case let .failure(e):
-                futureU.fail(with: e)
+                futureU.failed(e)
             }
         }
         return futureU
@@ -322,10 +311,10 @@ extension Future {
         appendCallback { result in
             switch result {
             case let .success(t):
-                futureT.succeed(with: t)
+                futureT.succeeded(t)
             case let .failure(e):
-                let fut = transform(e)
-                fut.appendCallback(futureT.complete)
+                let future = transform(e)
+                future.appendCallback(futureT.complete)
             }
         }
         return futureT
@@ -337,10 +326,10 @@ extension Future {
         appendCallback { result in
             switch result {
             case let .success(t):
-                futureT.succeed(with: t)
+                futureT.succeeded(t)
             case let .failure(e):
                 let t = callback(e)
-                futureT.succeed(with: t)
+                futureT.succeeded(t)
             }
         }
         return futureT
@@ -374,9 +363,10 @@ extension Future {
         appendCallback { result in
             switch result {
             case let .success(t):
-                futureT.succeed(with: t)
+                futureT.succeeded(t)
             case let .failure(e):
                 callback(e)
+                futureT.failed()
             }
         }
         return futureT
@@ -446,13 +436,21 @@ extension Future {
 extension Future where E == Never {
 
     @inlinable
+    func failed() {
+        _lock?.lock()
+        _callbacks = nil
+        _lock?.unlock()
+        _lock = nil
+    }
+
+    @inlinable
     public func flatMap<U, F>(_ transform: @escaping (T) -> Future<U, F>) -> Future<U, F> {
         let futureU = Future<U, F>()
         appendCallback { result in
             switch result {
             case let .success(t):
-                let fut = transform(t)
-                fut.appendCallback(futureU.complete)
+                let future = transform(t)
+                future.appendCallback(futureU.complete)
             }
         }
         return futureU
@@ -464,8 +462,8 @@ extension Future where E == Never {
         appendCallback { result in
             switch result {
             case let .success(t):
-                let fut = transform(t)
-                fut.appendCallback(futureU.complete)
+                let future = transform(t)
+                future.appendCallback(futureU.complete)
             }
         }
         return futureU
