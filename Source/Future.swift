@@ -234,21 +234,6 @@ extension Future {
     }
 
     @inlinable
-    public func mapError<F>(_ transform: @escaping (E) -> F) -> Future<T, F> {
-        let future = Future<T, F>()
-        appendCallback { result in
-            switch result {
-            case let .success(t):
-                future.succeeded(t)
-            case let .failure(e):
-                let f = transform(e)
-                future.failed(f)
-            }
-        }
-        return future
-    }
-
-    @inlinable
     public func flatMap<U>(_ transform: @escaping (T) -> Future<U, E>) -> Future<U, E> {
         let futureU = Future<U, E>()
         appendCallback { result in
@@ -306,33 +291,12 @@ extension Future {
     }
 
     @inlinable
-    public func flatMapError<F>(_ transform: @escaping (E) -> Future<T, F>) -> Future<T, F> {
-        let futureT = Future<T, F>()
+    public func `do`(_ callback: @escaping (T) -> Void) -> Future {
         appendCallback { result in
-            switch result {
-            case let .success(t):
-                futureT.succeeded(t)
-            case let .failure(e):
-                let future = transform(e)
-                future.appendCallback(futureT.complete)
-            }
+            guard case let .success(t) = result else { return }
+            callback(t)
         }
-        return futureT
-    }
-
-    @inlinable
-    public func recover(_ callback: @escaping (E) -> T) -> Future<T, Never> {
-        let futureT = Future<T, Never>()
-        appendCallback { result in
-            switch result {
-            case let .success(t):
-                futureT.succeeded(t)
-            case let .failure(e):
-                let t = callback(e)
-                futureT.succeeded(t)
-            }
-        }
-        return futureT
+        return self
     }
 
     @inlinable
@@ -348,12 +312,33 @@ extension Future {
     }
 
     @inlinable
-    public func `do`(_ callback: @escaping (T) -> Void) -> Future {
+    public func mapError<F>(_ transform: @escaping (E) -> F) -> Future<T, F> {
+        let future = Future<T, F>()
         appendCallback { result in
-            guard case let .success(t) = result else { return }
-            callback(t)
+            switch result {
+            case let .success(t):
+                future.succeeded(t)
+            case let .failure(e):
+                let f = transform(e)
+                future.failed(f)
+            }
         }
-        return self
+        return future
+    }
+
+    @inlinable
+    public func flatMapError<F>(_ transform: @escaping (E) -> Future<T, F>) -> Future<T, F> {
+        let futureT = Future<T, F>()
+        appendCallback { result in
+            switch result {
+            case let .success(t):
+                futureT.succeeded(t)
+            case let .failure(e):
+                let future = transform(e)
+                future.appendCallback(futureT.complete)
+            }
+        }
+        return futureT
     }
 
     @inlinable
@@ -367,6 +352,21 @@ extension Future {
             case let .failure(e):
                 callback(e)
                 futureT.failed()
+            }
+        }
+        return futureT
+    }
+
+    @inlinable
+    public func recover(_ callback: @escaping (E) -> T) -> Future<T, Never> {
+        let futureT = Future<T, Never>()
+        appendCallback { result in
+            switch result {
+            case let .success(t):
+                futureT.succeeded(t)
+            case let .failure(e):
+                let t = callback(e)
+                futureT.succeeded(t)
             }
         }
         return futureT
@@ -471,6 +471,16 @@ extension Future where E == Never {
 
     @inlinable
     @discardableResult
+    public func `do`(_ callback: @escaping (T) -> Void) -> Future {
+        appendCallback { result in
+            guard case let .success(t) = result else { return }
+            callback(t)
+        }
+        return self
+    }
+
+    @inlinable
+    @discardableResult
     public func then(_ callback: @escaping (Result<T, E>) -> Void) -> Future {
         appendCallback(callback)
         return self
@@ -483,14 +493,24 @@ extension Future where E == Never {
         return self
     }
 
-    @inlinable
-    @discardableResult
-    public func `do`(_ callback: @escaping (T) -> Void) -> Future {
-        appendCallback { result in
-            guard case let .success(t) = result else { return }
-            callback(t)
-        }
-        return self
+    @available(*, deprecated, message: "There are no errors to map")
+    public func mapError<F>(_ transform: @escaping (E) -> F) -> Future<T, F> {
+        fatalError("There are no errors to map")
+    }
+
+    @available(*, deprecated, message: "There are no errors to map")
+    public func flatMapError<F>(_ transform: @escaping (E) -> Future<T, F>) -> Future<T, F> {
+        fatalError("There are no errors to map")
+    }
+
+    @available(*, deprecated, message: "There are no errors to catch")
+    public func `catch`(_ callback: @escaping (E) -> Void) -> Future<T, Never> {
+        fatalError("There are no errors to catch")
+    }
+
+    @available(*, deprecated, message: "There are no errors to recover")
+    public func recover(_ callback: @escaping (E) -> T) -> Future<T, Never> {
+        fatalError("There are no errors to recover")
     }
     
     @inlinable
