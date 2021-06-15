@@ -57,9 +57,10 @@ extension Future {
     @inlinable
     func complete(with result: Result<T, E>) {
         _lock?.lock()
-        guard _result == nil else { return }
-        _result = result
-        _callbacks?.forEach { $0(result) }
+        if _result == nil {
+            _result = result
+            _callbacks?.forEach { $0(result) }
+        }
         _callbacks = nil
         _lock?.unlock()
         _lock = nil
@@ -355,7 +356,7 @@ extension Future {
                 futureT.succeeded(t)
             case let .failure(e):
                 callback(e)
-                futureT.failed()
+                futureT.complete()
             }
         }
         return futureT
@@ -439,7 +440,7 @@ extension Future {
 extension Future where E == Never {
 
     @inlinable
-    func failed() {
+    func complete() {
         _lock?.lock()
         _callbacks = nil
         _lock?.unlock()
