@@ -1,12 +1,12 @@
-public struct Promise<T, E: Error> {
+public struct Promise<T> {
 
-    public let future = Future<T, E>()
+    public let future = Future<T>()
 
     @inlinable
     public init() {}
 
     @inlinable
-    public func complete(with result: Result<T, E>) {
+    public func complete(with result: Result<T, Error>) {
         future.complete(with: result)
     }
 
@@ -16,7 +16,7 @@ public struct Promise<T, E: Error> {
     }
 
     @inlinable
-    public func failed(_ e: E) {
+    public func failed(_ e: Error) {
         future.failed(e)
     }
 }
