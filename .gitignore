@@ -1,0 +1,10 @@
+*
+!/.gitignore
+!/README.md
+!/Package.swift
+!/LICENSE
+!*/
+!/Sources/**
+!/Source/**
+!/Tests/**
+.DS_Store
