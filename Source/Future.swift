@@ -206,6 +206,7 @@ extension Future {
     }
 
     @inlinable
+    @discardableResult
     public func `do`(_ callback: @escaping (V) -> Void) -> Future {
         addCallback { result in
             guard case let .value(v) = result else { return }
@@ -239,16 +240,6 @@ extension Future where E == Never {
             }
         }
         return futureU
-    }
-
-    @inlinable
-    @discardableResult
-    public func `do`(_ callback: @escaping (V) -> Void) -> Future {
-        addCallback { result in
-            guard case let .value(v) = result else { return }
-            callback(v)
-        }
-        return self
     }
 }
 
@@ -289,6 +280,7 @@ extension Future {
     }
 
     @inlinable
+    @discardableResult
     public func `catch`(_ callback: @escaping (E) -> Void) -> Future<V, Never> {
         let futureV = Future<V, Never>()
         addCallback { result in
