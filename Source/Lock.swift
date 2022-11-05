@@ -4,27 +4,27 @@ import os
 final class Lock {
 
     @usableFromInline
-    let _lock: os_unfair_lock_t
+    let _cylinder: os_unfair_lock_t
 
     @inlinable
     init() {
-        _lock = .allocate(capacity: 1)
-        _lock.initialize(to: os_unfair_lock_s())
+        _cylinder = .allocate(capacity: 1)
+        _cylinder.initialize(to: os_unfair_lock_s())
     }
 
     @inlinable
     deinit {
-        _lock.deinitialize(count: 1)
-        _lock.deallocate()
+        _cylinder.deinitialize(count: 1)
+        _cylinder.deallocate()
     }
 
     @inlinable
     func lock() {
-        os_unfair_lock_lock(_lock)
+        os_unfair_lock_lock(_cylinder)
     }
 
     @inlinable
     func unlock() {
-        os_unfair_lock_unlock(_lock)
+        os_unfair_lock_unlock(_cylinder)
     }
 }
