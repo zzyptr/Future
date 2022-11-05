@@ -24,3 +24,10 @@ extension Promise where E == Never {
     }
 }
 
+extension Promise where V == Void {
+
+    @inlinable
+    public func fulfill() {
+        future.setValue(())
+    }
+}
